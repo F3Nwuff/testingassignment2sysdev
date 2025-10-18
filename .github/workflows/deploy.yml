@@ -12,7 +12,7 @@ jobs:
     env:
       AWS_PROFILE: default
       AWS_REGION: us-east-1
-      SSH_PRIV_KEY: /root/.ssh/assignment2key 
+      SSH_PRIV_KEY: /home/ubuntu/.ssh/assignment2key 
       
     steps:
       - name: Checkout
