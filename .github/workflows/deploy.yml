@@ -7,7 +7,7 @@ on:
 
 jobs:
   deploy:
-    runs-on: self-hosted, personal   # uses my EC2 runner
+    runs-on: self-hosted   # uses my EC2 runner
 
     env:
       AWS_PROFILE: default
