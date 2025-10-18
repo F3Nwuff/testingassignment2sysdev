@@ -2,12 +2,12 @@ name: Section C - Task 7
 
 on:
   push:
-    branches: [ main ] 
+    branches: [ main ]
   workflow_dispatch:
 
 jobs:
   deploy:
-    runs-on: self-hosted   # uses my EC2 runner
+    runs-on: self-hosted
 
     env:
       AWS_PROFILE: default
@@ -17,16 +17,18 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v4
 
-      # Install the tools deploy.sh uses 
-      - name: Install prerequisites (jq, unzip, pip)
+      - name: Install prerequisites (jq, unzip, pip base, venv)
         run: |
           sudo apt-get update -y
-          sudo apt-get install -y jq unzip python3-pip
+          sudo apt-get install -y jq unzip python3-venv curl gpg
 
-      - name: Install Ansible
+      - name: Setup Python venv + Ansible
         run: |
-          pip3 install --upgrade pip
-          pip3 install ansible
+          python3 -m venv .venv
+          . .venv/bin/activate
+          pip install --upgrade pip
+          pip install ansible
+          echo "$PWD/.venv/bin" >> $GITHUB_PATH
 
       - name: Install Terraform
         run: |
