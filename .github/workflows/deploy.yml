@@ -7,31 +7,25 @@ on:
 
 jobs:
   deploy:
-    runs-on: self-hosted
-
+    runs-on: [self-hosted]
     env:
-      AWS_PROFILE: default
       AWS_REGION: us-east-1
-
     steps:
-      - name: Checkout repo
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install prerequisites (jq, unzip, pip base, venv)
+      - name: Fix line endings (safety)
         run: |
           sudo apt-get update -y
-          sudo apt-get install -y jq unzip python3-venv curl gpg
+          sudo apt-get install -y dos2unix
+          dos2unix scripts/*.sh || true
+          chmod +x scripts/deploy.sh
 
-      - name: Setup Python venv + Ansible
+      - name: Install toolchain
         run: |
-          python3 -m venv .venv
-          . .venv/bin/activate
-          pip install --upgrade pip
-          pip install ansible
-          echo "$PWD/.venv/bin" >> $GITHUB_PATH
-
-      - name: Install Terraform
-        run: |
+          sudo apt-get install -y jq unzip python3-pip curl gnupg
+          python3 -m pip install --upgrade pip
+          python3 -m pip install ansible
           if ! command -v terraform >/dev/null 2>&1; then
             curl -fsSL https://apt.releases.hashicorp.com/gpg | sudo gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg
             echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(. /etc/os-release; echo $UBUNTU_CODENAME) main" | sudo tee /etc/apt/sources.list.d/hashicorp.list
@@ -39,9 +33,12 @@ jobs:
             sudo apt-get install -y terraform
           fi
           terraform -version
+          aws sts get-caller-identity || true  # sanity log
 
-      - name: Make deploy script executable
-        run: chmod +x scripts/deploy.sh
-
-      - name: Run deploy
-        run: ./scripts/deploy.sh
+      - name: Run deploy (debug)
+        env:
+          TF_LOG: WARN
+          TF_INPUT: "0"
+        run: |
+          set -euxo pipefail
+          bash -x ./scripts/deploy.sh
