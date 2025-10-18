@@ -31,14 +31,14 @@ jobs:
           sudo apt-get update -y
           sudo apt-get install -y jq unzip curl gnupg python3-pip
 
-          # Ansible (use apt to avoid the pip “externally-managed-environment” error)
+          # Ansible (APT avoids the pip PEP-668 guard)
           sudo apt-get install -y ansible
 
-          # AWS CLI v2
+          # AWS CLI v2 (optional, only for diagnostics)
           curl -sSL "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o awscliv2.zip
           unzip -o awscliv2.zip
           sudo ./aws/install --update
-          aws --version
+          aws --version || true
 
           # Terraform
           if ! command -v terraform >/dev/null 2>&1; then
@@ -52,9 +52,8 @@ jobs:
           fi
           terraform -version
 
-          # Log identity if credentials happen to exist (don’t fail the job)
+          # Log identity if credentials exist (do not fail if they don't)
           aws sts get-caller-identity || true
-
 
       - name: Run deploy (debug)
         env:
