@@ -8,8 +8,10 @@ on:
 jobs:
   deploy:
     runs-on: [self-hosted]
+
     env:
       AWS_REGION: us-east-1
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -21,19 +23,30 @@ jobs:
           dos2unix scripts/*.sh || true
           chmod +x scripts/deploy.sh
 
-      - name: Install toolchain
+      - name: Install toolchain (jq, unzip, curl, Terraform, Ansible via apt)
         run: |
-          sudo apt-get install -y jq unzip python3-pip curl gnupg
-          python3 -m pip install --upgrade pip
-          python3 -m pip install ansible
+          set -euxo pipefail
+          sudo apt-get update -y
+          sudo apt-get install -y jq unzip curl gnupg software-properties-common
+          # Ansible via apt to avoid PEP 668
+          sudo add-apt-repository --yes --update ppa:ansible/ansible
+          sudo apt-get install -y ansible
+          ansible --version
+
+          # Terraform (install only if missing)
           if ! command -v terraform >/dev/null 2>&1; then
-            curl -fsSL https://apt.releases.hashicorp.com/gpg | sudo gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg
-            echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(. /etc/os-release; echo $UBUNTU_CODENAME) main" | sudo tee /etc/apt/sources.list.d/hashicorp.list
+            curl -fsSL https://apt.releases.hashicorp.com/gpg \
+              | sudo gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg
+            echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com \
+              $(. /etc/os-release; echo $UBUNTU_CODENAME) main" \
+              | sudo tee /etc/apt/sources.list.d/hashicorp.list
             sudo apt-get update -y
             sudo apt-get install -y terraform
           fi
           terraform -version
-          aws sts get-caller-identity || true  # sanity log
+
+          # Optional: log the identity if AWS CLI is present on the runner
+          command -v aws >/dev/null 2>&1 && aws sts get-caller-identity || true
 
       - name: Run deploy (debug)
         env:
