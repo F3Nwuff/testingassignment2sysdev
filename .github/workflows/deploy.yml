@@ -68,8 +68,8 @@ jobs:
       - name: Make deploy.sh executable (safety)
         run: |
           sudo apt-get install -y dos2unix || true
-          dos2unix ./deploy.sh || true
-          chmod +x ./deploy.sh
+          dos2unix ./scripts/deploy.sh || true
+          chmod +x ./scripts/deploy.sh
 
       - name: Run deployment
-        run: ./deploy.sh
+        run: ./scripts/deploy.sh
