@@ -1,0 +1,12 @@
+db_name: posts
+db_user: posts
+db_password: devops
+db_port: 5432
+
+backend_image: "rmitdominichynes/sdo-2025:backend"
+db_image: "rmitdominichynes/sdo-2025:db"
+backend_port: 8080
+
+# task 4
+frontend_port: 80
+frontend_image: "rmitdominichynes/sdo-2025:frontend"

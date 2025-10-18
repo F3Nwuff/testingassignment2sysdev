@@ -1,0 +1,51 @@
+# - name: Baseline
+#   hosts: backend_host
+#   become: true
+#   roles:
+#     - common
+
+# - name: Database
+#   hosts: backend_host
+#   become: true
+#   roles:
+#     - db
+
+# - name: Backend
+#   hosts: backend_host
+#   become: true
+#   roles:
+#     - backend
+
+
+# # task 4
+# - name: Frontend
+#   hosts: backend_host
+#   become: true
+#   roles:
+#     - frontend
+
+
+# task 6
+- name: Baseline
+  hosts: frontend_host,backend_host,db_host
+  become: true
+  roles:
+    - common
+
+- name: Database
+  hosts: db_host
+  become: true
+  roles:
+    - db
+
+- name: Backend
+  hosts: backend_host
+  become: true
+  roles:
+    - backend
+
+- name: Frontend
+  hosts: frontend_host
+  become: true
+  roles:
+    - frontend

@@ -1,0 +1,32 @@
+- name: Pull db image
+  community.docker.docker_image:
+    name: "{{ db_image }}"
+    source: pull
+
+- name: Ensure network
+  community.docker.docker_network:
+    name: posts_net
+
+- name: Run PostgreSQL container
+  community.docker.docker_container:
+    name: posts_db
+    image: "{{ db_image }}"
+    restart_policy: always
+    env:
+      POSTGRES_DB: "{{ db_name | string }}"
+      POSTGRES_USER: "{{ db_user | string }}"
+      POSTGRES_PASSWORD: "{{ db_password | string }}"
+    networks:
+      - name: posts_net
+    published_ports:
+      - "{{ db_port }}:5432"
+    state: started
+    recreate: true
+
+
+# Task 3a
+- name: Wait for Postgres to be ready
+  wait_for:
+    host: 127.0.0.1
+    port: "{{ db_port }}"
+    timeout: 60

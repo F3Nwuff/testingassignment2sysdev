@@ -1,0 +1,32 @@
+- name: Update apt cache
+  apt:
+    update_cache: true
+
+- name: Install base packages and Docker
+  apt:
+    name:
+      - ca-certificates
+      - curl
+      - gnupg
+      - python3
+      - python3-pip
+      - docker.io
+    state: present
+
+- name: Install Docker SDK for Python
+  pip:
+    name: docker
+    executable: pip3
+
+- name: Enable and start Docker
+  systemd:
+    name: docker
+    enabled: true
+    state: started
+
+
+# check for Docker network existence on each host that will run containers
+- name: Ensure posts_net network exists
+  community.docker.docker_network:
+    name: posts_net
+    state: present

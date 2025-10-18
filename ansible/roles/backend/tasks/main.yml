@@ -1,0 +1,56 @@
+# task 6
+- name: Pull backend image
+  community.docker.docker_image:
+    name: "{{ backend_image }}"
+    source: pull
+
+- name: Run backend container
+  community.docker.docker_container:
+    name: posts_backend
+    image: "{{ backend_image }}"
+    restart_policy: always
+    env:
+      PORT: "{{ backend_port | string }}"
+      DB_HOST: "{{ hostvars[groups['db_host'][0]].inventory_hostname }}"
+      DB_PORT: "{{ db_port | string }}"
+      DB_NAME: "{{ db_name | string }}"
+      DB_USER: "{{ db_user | string }}"
+      DB_PASSWORD: "{{ db_password | string }}"
+    networks:
+      - name: posts_net
+    published_ports:
+      - "{{ backend_port }}:8080"
+    state: started
+    recreate: true
+
+
+# task 3a
+- name: Pause briefly for backend startup
+  pause:
+    seconds: 5
+
+- name: Read backend logs
+  shell: docker logs --tail=200 posts_backend || true
+  register: backend_logs
+  changed_when: false
+
+- name: Assert backend connected to DB
+  assert:
+    that:
+      - backend_logs.stdout is not search("ECONNREFUSED|Connection refused|connect ECONNREFUSED|no such host|failed to connect|authentication failed", ignorecase=True)
+
+# task 3b
+- name: Wait for backend port
+  wait_for:
+    host: 127.0.0.1
+    port: "{{ backend_port }}"
+    timeout: 60
+
+- name: HTTP check from public internet
+  delegate_to: localhost
+  uri:
+    url: "http://{{ hostvars[inventory_hostname].inventory_hostname }}:{{ backend_port }}/"
+    method: GET
+    status_code: 200,201,202,204,301,302,400,401,403,404
+  register: public_http_check
+  changed_when: false

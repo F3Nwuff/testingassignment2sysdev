@@ -1,0 +1,26 @@
+# task 4
+- name: Pull frontend image
+  community.docker.docker_image:
+    name: "{{ frontend_image }}"
+    source: pull
+
+- name: Run frontend container
+  community.docker.docker_container:
+    name: posts_frontend
+    image: "{{ frontend_image }}"
+    restart_policy: always
+    env:
+      PORT: "8081"
+
+      # task 5 (frontend can reach backend)
+      # task 6 (split EC2 hosts)
+      BACKEND_URL: "http://{{ hostvars[groups['backend_host'][0]].inventory_hostname }}:{{ backend_port }}"
+    networks:
+      - name: posts_net
+
+    # task 4 (host 80 to container 8081)
+    published_ports:
+      - "{{ frontend_port }}:8081"
+
+    state: started
+    recreate: true
