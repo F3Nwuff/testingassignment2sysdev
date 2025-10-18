@@ -38,7 +38,7 @@ jobs:
           pip install --user ansible
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
 
-      - name: Precheck: runner has valid AWS creds & SSH key
+      - name: Precheck that runner has valid AWS creds & SSH key
         shell: bash
         run: |
           set -euo pipefail
