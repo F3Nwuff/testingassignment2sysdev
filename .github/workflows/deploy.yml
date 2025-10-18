@@ -40,6 +40,9 @@ jobs:
           sudo ./aws/install --update
           aws --version || true
 
+          mkdir -p ~/.aws
+          printf "[default]\nregion = %s\ncredential_source = Ec2InstanceMetadata\n" "${AWS_REGION:-us-east-1}" > ~/.aws/config
+
           # Terraform
           if ! command -v terraform >/dev/null 2>&1; then
             curl -fsSL https://apt.releases.hashicorp.com/gpg \
