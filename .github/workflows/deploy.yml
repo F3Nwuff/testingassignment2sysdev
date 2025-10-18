@@ -1,4 +1,5 @@
 name: Section C - Task 7 Deploy
+
 on:
   push:
     branches: [ "main" ]
@@ -6,8 +7,7 @@ on:
 
 jobs:
   deploy:
-    runs-on: [self-hosted]   # add your custom label too if you set one
-
+    runs-on: [self-hosted]
     env:
       AWS_PROFILE: default
       AWS_REGION: us-east-1
@@ -36,13 +36,20 @@ jobs:
           fi
           terraform -version
           pip install --user ansible
-          echo "$HOME/.local/bin" >> $GITHUB_PATH
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
 
       - name: Precheck: runner has valid AWS creds & SSH key
+        shell: bash
         run: |
           set -euo pipefail
-          test -f ~/.aws/credentials || { echo "::error::.aws/credentials missing on runner"; exit 1; }
-          test -f "${SSH_PRIV_KEY}"   || { echo "::error::SSH key ${SSH_PRIV_KEY} missing on runner"; exit 1; }
+          if [ ! -f "$HOME/.aws/credentials" ]; then
+            echo "::error::.aws/credentials missing on runner"
+            exit 1
+          fi
+          if [ ! -f "${SSH_PRIV_KEY}" ]; then
+            echo "::error::SSH key ${SSH_PRIV_KEY} missing on runner"
+            exit 1
+          fi
           if ! aws sts get-caller-identity >/dev/null 2>&1; then
             echo "::error::AWS credentials missing/expired on runner. Refresh ~/.aws/credentials and re-run."
             exit 1
