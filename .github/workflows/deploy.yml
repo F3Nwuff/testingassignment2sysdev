@@ -8,10 +8,11 @@ on:
 jobs:
   deploy:
     runs-on: [self-hosted]
+
     env:
       AWS_PROFILE: default
       AWS_REGION: us-east-1
-      SSH_PRIV_KEY: $HOME/.ssh/assignment2key
+      SSH_PRIV_KEY: /home/ubuntu/.ssh/assignment2key   # ← always use ubuntu's key
 
     steps:
       - name: Checkout
@@ -21,7 +22,7 @@ jobs:
         run: |
           set -euxo pipefail
           sudo apt-get update -y
-          sudo apt-get install -y unzip jq curl python3-venv python3-pip
+          sudo apt-get install -y unzip jq curl python3-pip
           # AWS CLI v2
           if ! command -v aws >/dev/null; then
             curl -fsSL https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip -o awscliv2.zip
@@ -37,37 +38,41 @@ jobs:
             sudo mv -f terraform /usr/local/bin/terraform
           fi
           terraform -version
-          # Ansible in a virtualenv 
-          python3 -m venv .venv
-          . .venv/bin/activate
-          pip install --upgrade pip
-          pip install ansible
-          echo "$PWD/.venv/bin" >> "$GITHUB_PATH"
+          # Ansible from apt (avoids PEP 668)
+          sudo apt-get install -y ansible
 
+      - name: Debug: show ubuntu SSH dir
+        run: |
+          ls -la /home/ubuntu/.ssh || true
 
-      - name: Precheck that runner has valid AWS creds & SSH key
+      - name: Precheck: runner has valid AWS creds & SSH key (ubuntu path)
         shell: bash
         run: |
           set -euo pipefail
-          if [ ! -f "$HOME/.aws/credentials" ]; then
-            echo "::error::.aws/credentials missing on runner"
-            exit 1
+          if [ ! -f "/home/ubuntu/.aws/credentials" ] && [ ! -f "$HOME/.aws/credentials" ]; then
+            echo "::error::.aws/credentials missing on runner (tried /home/ubuntu and \$HOME)"; exit 1
           fi
           if [ ! -f "${SSH_PRIV_KEY}" ]; then
-            echo "::error::SSH key ${SSH_PRIV_KEY} missing on runner"
-            exit 1
+            echo "::error::SSH key ${SSH_PRIV_KEY} missing on runner"; exit 1
           fi
+          # permissions sanity (won’t fail if already correct)
+          chmod 700 /home/ubuntu/.ssh 2>/dev/null || true
+          chmod 600 "${SSH_PRIV_KEY}" 2>/dev/null || true
           if ! aws sts get-caller-identity >/dev/null 2>&1; then
-            echo "::error::AWS credentials missing/expired on runner. Refresh ~/.aws/credentials and re-run."
+            echo "::error::AWS credentials missing/expired on runner. Refresh /home/ubuntu/.aws/credentials and re-run."
             exit 1
           fi
           echo "AWS OK: $(aws sts get-caller-identity --query 'Arn' --output text)"
+          echo "SSH key OK at ${SSH_PRIV_KEY}"
 
       - name: Make deploy.sh executable (safety)
         run: |
           sudo apt-get install -y dos2unix || true
           dos2unix ./deploy.sh || true
           chmod +x ./deploy.sh
+
+      - name: Run deployment
+        run: ./deploy.sh
 
       - name: Run deployment
         run: ./deploy.sh
