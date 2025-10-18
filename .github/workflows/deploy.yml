@@ -1,87 +1,59 @@
-name: Section C - Task 7
-
+name: Section C - Task 7 Deploy
 on:
   push:
-    branches: [ main ]
+    branches: [ "main" ]
   workflow_dispatch:
 
 jobs:
   deploy:
-    runs-on: [self-hosted]
+    runs-on: [self-hosted]   # add your custom label too if you set one
 
     env:
+      AWS_PROFILE: default
       AWS_REGION: us-east-1
+      SSH_PRIV_KEY: ~/.ssh/assignment2key
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Fix line endings (safety)
-        run: |
-          sudo apt-get update -y
-          sudo apt-get install -y dos2unix
-          dos2unix scripts/*.sh || true
-          chmod +x scripts/deploy.sh
-
-      - name: Install toolchain
+      - name: Toolchain (awscli, terraform, ansible, jq)
         run: |
           set -euxo pipefail
-
-          # Base packages
           sudo apt-get update -y
-          sudo apt-get install -y jq unzip curl gnupg python3-pip
-
-          # Ansible (avoid pip’s “externally-managed” warning)
-          sudo apt-get install -y ansible
-
-          # AWS CLI v2
-          curl -sSL "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o awscliv2.zip
-          unzip -o awscliv2.zip
-          sudo ./aws/install --update
-          aws --version || true
-
-          # Terraform
-          if ! command -v terraform >/dev/null 2>&1; then
-            curl -fsSL https://apt.releases.hashicorp.com/gpg \
-              | sudo gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg
-            echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com \
-              $(. /etc/os-release; echo $UBUNTU_CODENAME) main" \
-              | sudo tee /etc/apt/sources.list.d/hashicorp.list
-            sudo apt-get update -y
-            sudo apt-get install -y terraform
+          sudo apt-get install -y unzip jq python3-pip curl
+          if ! command -v aws >/dev/null; then
+            curl -fsSL https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip -o awscliv2.zip
+            unzip -q -o awscliv2.zip
+            sudo ./aws/install --update
+          fi
+          aws --version
+          TF_VERSION="1.9.8"
+          if ! command -v terraform >/dev/null; then
+            curl -fsSL "https://releases.hashicorp.com/terraform/${TF_VERSION}/terraform_${TF_VERSION}_linux_amd64.zip" -o tf.zip
+            unzip -o tf.zip
+            sudo mv -f terraform /usr/local/bin/terraform
           fi
           terraform -version
+          pip install --user ansible
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
 
-      # >>> This replaces the IMDS step <<<
-      - name: Configure AWS default profile from secrets
-        env:
-          AKID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          SAK:  ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          STS:  ${{ secrets.AWS_SESSION_TOKEN }}
-          REGION: ${{ env.AWS_REGION }}
+      - name: Precheck: runner has valid AWS creds & SSH key
         run: |
           set -euo pipefail
-          mkdir -p ~/.aws
-          {
-            echo "[default]"
-            echo "aws_access_key_id=${AKID}"
-            echo "aws_secret_access_key=${SAK}"
-            if [ -n "${STS:-}" ]; then
-              echo "aws_session_token=${STS}"
-            fi
-          } > ~/.aws/credentials
-          {
-            echo "[default]"
-            echo "region=${REGION:-us-east-1}"
-          } > ~/.aws/config
+          test -f ~/.aws/credentials || { echo "::error::.aws/credentials missing on runner"; exit 1; }
+          test -f "${SSH_PRIV_KEY}"   || { echo "::error::SSH key ${SSH_PRIV_KEY} missing on runner"; exit 1; }
+          if ! aws sts get-caller-identity >/dev/null 2>&1; then
+            echo "::error::AWS credentials missing/expired on runner. Refresh ~/.aws/credentials and re-run."
+            exit 1
+          fi
+          echo "AWS OK: $(aws sts get-caller-identity --query 'Arn' --output text)"
 
-          # Sanity check: should succeed now
-          aws sts get-caller-identity --profile default
-
-      - name: Run deploy (debug)
-        env:
-          TF_LOG: WARN
-          TF_INPUT: "0"
+      - name: Make deploy.sh executable (safety)
         run: |
-          set -euxo pipefail
-          bash -x ./scripts/deploy.sh
+          sudo apt-get install -y dos2unix || true
+          dos2unix ./deploy.sh || true
+          chmod +x ./deploy.sh
+
+      - name: Run deployment
+        run: ./deploy.sh
