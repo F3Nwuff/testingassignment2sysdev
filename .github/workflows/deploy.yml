@@ -12,8 +12,8 @@ jobs:
     env:
       AWS_PROFILE: default
       AWS_REGION: us-east-1
-      SSH_PRIV_KEY: /home/ubuntu/.ssh/assignment2key   # ← always use ubuntu's key
-
+      SSH_PRIV_KEY: /root/.ssh/assignment2key 
+      
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -70,9 +70,6 @@ jobs:
           sudo apt-get install -y dos2unix || true
           dos2unix ./deploy.sh || true
           chmod +x ./deploy.sh
-
-      - name: Run deployment
-        run: ./deploy.sh
 
       - name: Run deployment
         run: ./deploy.sh
