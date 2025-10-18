@@ -21,13 +21,15 @@ jobs:
         run: |
           set -euxo pipefail
           sudo apt-get update -y
-          sudo apt-get install -y unzip jq python3-pip curl
+          sudo apt-get install -y unzip jq curl python3-venv python3-pip
+          # AWS CLI v2
           if ! command -v aws >/dev/null; then
             curl -fsSL https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip -o awscliv2.zip
             unzip -q -o awscliv2.zip
             sudo ./aws/install --update
           fi
           aws --version
+          # Terraform
           TF_VERSION="1.9.8"
           if ! command -v terraform >/dev/null; then
             curl -fsSL "https://releases.hashicorp.com/terraform/${TF_VERSION}/terraform_${TF_VERSION}_linux_amd64.zip" -o tf.zip
@@ -35,8 +37,13 @@ jobs:
             sudo mv -f terraform /usr/local/bin/terraform
           fi
           terraform -version
-          pip install --user ansible
-          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          # Ansible in a virtualenv 
+          python3 -m venv .venv
+          . .venv/bin/activate
+          pip install --upgrade pip
+          pip install ansible
+          echo "$PWD/.venv/bin" >> "$GITHUB_PATH"
+
 
       - name: Precheck that runner has valid AWS creds & SSH key
         shell: bash
