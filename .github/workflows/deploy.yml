@@ -31,17 +31,34 @@ jobs:
           sudo apt-get update -y
           sudo apt-get install -y jq unzip curl gnupg python3-pip
 
-          # Ansible (APT avoids the pip PEP-668 guard)
+          # Ansible (apt avoids pip's "externally-managed-environment" error)
           sudo apt-get install -y ansible
 
-          # AWS CLI v2 (optional, only for diagnostics)
+          # AWS CLI v2
           curl -sSL "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o awscliv2.zip
           unzip -o awscliv2.zip
           sudo ./aws/install --update
           aws --version || true
 
+          # ---- Create a 'default' profile using the instance role (IMDSv2) ----
           mkdir -p ~/.aws
-          printf "[default]\nregion = %s\ncredential_source = Ec2InstanceMetadata\n" "${AWS_REGION:-us-east-1}" > ~/.aws/config
+          TOKEN=$(curl -sS -X PUT "http://169.254.169.254/latest/api/token" \
+                   -H "X-aws-ec2-metadata-token-ttl-seconds: 21600")
+          ROLE=$(curl -sS -H "X-aws-ec2-metadata-token: $TOKEN" \
+                   http://169.254.169.254/latest/meta-data/iam/security-credentials/)
+          CREDS=$(curl -sS -H "X-aws-ec2-metadata-token: $TOKEN" \
+                   http://169.254.169.254/latest/meta-data/iam/security-credentials/$ROLE)
+
+          # Write short-lived credentials as the 'default' profile
+          jq -r --arg region "${AWS_REGION:-us-east-1}" '
+            "[default]",
+            "aws_access_key_id=\(.AccessKeyId)",
+            "aws_secret_access_key=\(.SecretAccessKey)",
+            "aws_session_token=\(.Token)"
+          ' <<<"$CREDS" > ~/.aws/credentials
+
+          printf "[default]\nregion = %s\n" "${AWS_REGION:-us-east-1}" > ~/.aws/config
+          # ---------------------------------------------------------------------
 
           # Terraform
           if ! command -v terraform >/dev/null 2>&1; then
@@ -55,8 +72,8 @@ jobs:
           fi
           terraform -version
 
-          # Log identity if credentials exist (do not fail if they don't)
-          aws sts get-caller-identity || true
+          # Sanity check (will succeed now that 'default' exists)
+          aws sts get-caller-identity --profile default
 
       - name: Run deploy (debug)
         env:
