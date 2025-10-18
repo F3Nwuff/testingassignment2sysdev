@@ -23,17 +23,24 @@ jobs:
           dos2unix scripts/*.sh || true
           chmod +x scripts/deploy.sh
 
-      - name: Install toolchain (jq, unzip, curl, Terraform, Ansible via apt)
+      - name: Install toolchain
         run: |
           set -euxo pipefail
-          sudo apt-get update -y
-          sudo apt-get install -y jq unzip curl gnupg software-properties-common
-          # Ansible via apt to avoid PEP 668
-          sudo add-apt-repository --yes --update ppa:ansible/ansible
-          sudo apt-get install -y ansible
-          ansible --version
 
-          # Terraform (install only if missing)
+          # Base packages
+          sudo apt-get update -y
+          sudo apt-get install -y jq unzip curl gnupg python3-pip
+
+          # Ansible (use apt to avoid the pip “externally-managed-environment” error)
+          sudo apt-get install -y ansible
+
+          # AWS CLI v2
+          curl -sSL "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o awscliv2.zip
+          unzip -o awscliv2.zip
+          sudo ./aws/install --update
+          aws --version
+
+          # Terraform
           if ! command -v terraform >/dev/null 2>&1; then
             curl -fsSL https://apt.releases.hashicorp.com/gpg \
               | sudo gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg
@@ -45,8 +52,9 @@ jobs:
           fi
           terraform -version
 
-          # Optional: log the identity if AWS CLI is present on the runner
-          command -v aws >/dev/null 2>&1 && aws sts get-caller-identity || true
+          # Log identity if credentials happen to exist (don’t fail the job)
+          aws sts get-caller-identity || true
+
 
       - name: Run deploy (debug)
         env:
